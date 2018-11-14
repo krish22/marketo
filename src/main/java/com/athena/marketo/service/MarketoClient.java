@@ -67,7 +67,14 @@ public class MarketoClient {
 	    }
 		
 	    ResponseEntity<ObjectNode> response = rest.exchange(url, HttpMethod.POST, requestEntity, ObjectNode.class); 
-	    log.info("End post : {}",response.getBody()); 
+	    log.info("End post : {}",response.getBody());
+	    
+	    if(response.getStatusCodeValue() == 601 || response.getStatusCodeValue() ==602) {
+	    	log.info("Authorization token is invalid or expired .. Hence refresing the cache" );
+	    	this.removeIdentityFromCache();
+	    	return post(url,requestBody);
+	    }
+	    
 		return response.getBody();
 		
 	}
@@ -79,6 +86,13 @@ public class MarketoClient {
 		
 		ResponseEntity<ObjectNode> response = rest.exchange(url, HttpMethod.GET, requestEntity, ObjectNode.class);
 		log.info("End getIdentity : {}",response.getBody());
+		
+		if(response.getStatusCodeValue() == 601 || response.getStatusCodeValue() ==602) {
+	    	log.info("Authorization token is invalid or expired .. Hence refresing the cache" );
+	    	this.removeIdentityFromCache();
+	    	return get(url);
+	    }
+		
 		return response.getBody();
 	}
 	
@@ -89,6 +103,13 @@ public class MarketoClient {
 		
 		ResponseEntity<Resource> response = rest.exchange(url, HttpMethod.GET, requestEntity, Resource.class);
 		log.info("End getIdentity : {}",response.getBody());
+		
+		if(response.getStatusCodeValue() == 601 || response.getStatusCodeValue() == 602) {
+	    	log.info("Authorization token is invalid or expired .. Hence refresing the cache" );
+	    	this.removeIdentityFromCache();
+	    	return getFile(url);
+	    }
+		
 		return response.getBody().getInputStream();
 	}
 	private ObjectNode getIdentity() {

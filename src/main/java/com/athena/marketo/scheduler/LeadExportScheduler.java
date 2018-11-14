@@ -23,10 +23,15 @@ public class LeadExportScheduler extends BaseScheduler{
 		this.setPollStatusJobUrl(MarketoConstants.POLL_STATUS_LEAD_EXPORT_JOB_URL);
 		this.setRetrieveDataUrl(MarketoConstants.RETRIEVE_LEAD_EXPROT_JOB_URL);
 		this.setCancelJobUrl(MarketoConstants.CANCEL_LEAD_EXPORT_JOB_URL);
-		this.setAction("LeadExportScheduler");
+		this.setAction("Lead");
 	}
 	
-	@Scheduled(fixedRate=1000*30)
+	
+	/* (non-Javadoc)
+	 * This job will run at everyday at 12 AM mid night
+	 * @see com.athena.marketo.scheduler.BaseScheduler#run()
+	 */
+	@Scheduled(cron = "0 0 * * * ?")
 	@Override
 	public void run() {
 		log.info("Running LeadExportScheduler");
@@ -66,11 +71,7 @@ public class LeadExportScheduler extends BaseScheduler{
 		
 		Map<String,Object> filter = new HashMap<>();
 		
-		Map<String,String> createdAtFilter = new HashMap<>();
-		createdAtFilter.put("startAt", "2017-01-01T00:00:00Z");
-		createdAtFilter.put("endAt", "2017-01-31T00:00:00Z");
-		
-		filter.put("createdAt", createdAtFilter);
+		filter.put("createdAt", createdAtFilter());
 		
 		requestMap.put("filter", filter);
 		return requestMap;

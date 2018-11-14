@@ -23,10 +23,14 @@ public class ActivityExportScheduler extends BaseScheduler{
 		this.setPollStatusJobUrl(MarketoConstants.POLL_STATUS_ACTIVITY_EXPORT_JOB_URL);
 		this.setRetrieveDataUrl(MarketoConstants.RETRIEVE_ACTIVITY_EXPROT_JOB_URL);
 		this.setCancelJobUrl(MarketoConstants.CANCEL_ACTIVITY_EXPORT_JOB_URL);
-		this.setAction("ActivityExportScheduler");
+		this.setAction("Activity");
 	}
 	
-	@Scheduled(fixedRate=1000*60*60)
+	/* (non-Javadoc)
+	 * This job will run at everyday at 12 AM mid night
+	 * @see com.athena.marketo.scheduler.BaseScheduler#run()
+	 */
+	@Scheduled(cron = "0 0 * * * ?")
 	@Override
 	public void run() {
 		log.info("Running ActivityExportScheduler");
@@ -55,11 +59,12 @@ public class ActivityExportScheduler extends BaseScheduler{
 		
 		Map<String,Object> filter = new HashMap<>();
 		
-		Map<String,String> createdAtFilter = new HashMap<>();
-		createdAtFilter.put("startAt", "2017-07-01T23:59:59-00:00");
-		createdAtFilter.put("endAt", "2017-07-31T23:59:59-00:00");
 		
-		filter.put("createdAt", createdAtFilter);
+		/*Map<String,String> createdAtFilter = new HashMap<>();
+		createdAtFilter.put("startAt", "2017-07-01T23:59:59-00:00");
+		createdAtFilter.put("endAt", "2017-07-31T23:59:59-00:00");*/
+		
+		filter.put("createdAt", createdAtFilter());
 		
 		requestMap.put("filter", filter);
 		

@@ -7,6 +7,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -40,6 +42,10 @@ public abstract class BaseScheduler {
 	
 	@Value("${exportfilepath}")
 	private String exportfilepath;
+	
+	@Value("${extract_duration}")
+	protected int extractDuration;
+	
 	/**
 	 * @return the createJobUrl
 	 */
@@ -198,7 +204,16 @@ public abstract class BaseScheduler {
 			
 			BufferedReader reader = new BufferedReader(new InputStreamReader(reponseInputStream));
 			
-			try(BufferedWriter writer = new BufferedWriter(new FileWriter(new File(exportfilepath + "exportdata.csv")))){
+			SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+			
+			// This will create an file with name 2018-01-31T13:09:00_Lead.csv
+			StringBuilder filePath = new StringBuilder(exportfilepath)
+							.append(dateFormat.format(Calendar.getInstance().getTime()))
+							.append("_")
+							.append(this.action)
+							.append(".csv");
+			
+			try(BufferedWriter writer = new BufferedWriter(new FileWriter(new File(filePath.toString())))){
 				String line;
 				while ((line = reader.readLine()) != null) {
 					writer.write(line);
@@ -210,4 +225,35 @@ public abstract class BaseScheduler {
 			log.error(e.getMessage(),e);
 		}
 	}
+	
+	public Map<String,String> createdAtFilter() {
+		Map<String,String> createdAtFilter = new HashMap<>();
+		
+		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+		Calendar startDate = Calendar.getInstance();
+
+		setTimeToZero(startDate);
+		Calendar endDate = Calendar.getInstance();
+		startDate.set(Calendar.DATE, startDate.get(Calendar.DATE)- extractDuration);
+		setTimeToZero(endDate);
+		
+		createdAtFilter.put("startAt", dateFormat.format(startDate.getTime()));
+		createdAtFilter.put("endAt", dateFormat.format(endDate.getTime()));
+		
+		log.info(" created at filterValue {}", String.valueOf(createdAtFilter));
+		return createdAtFilter;
+		
+	}
+	
+	/**
+	 * This method will set time to 00:00:00
+	 * @param date
+	 */
+	private void setTimeToZero(Calendar date) {
+		date.set(Calendar.HOUR_OF_DAY, 0);;
+		date.set(Calendar.MINUTE, 0);
+		date.set(Calendar.SECOND, 0);
+		date.set(Calendar.MILLISECOND,0);
+	}
+
 }
