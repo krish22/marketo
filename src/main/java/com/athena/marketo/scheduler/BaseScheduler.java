@@ -19,7 +19,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import com.athena.marketo.domain.MarketoResponse;
+import com.athena.marketo.exception.MarketoException;
 import com.athena.marketo.service.MarketoClient;
+import com.athena.marketo.utils.JsonUtils;
 import com.athena.marketo.utils.MethodPoller;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -38,7 +41,7 @@ public abstract class BaseScheduler {
 	private MarketoClient marketoClient;
 	
 	@Autowired
-	private MethodPoller<ObjectNode> methodPoller;
+	private MethodPoller<MarketoResponse> methodPoller;
 	
 	@Value("${exportfilepath}")
 	private String exportfilepath;
@@ -130,40 +133,41 @@ public abstract class BaseScheduler {
 		this.action = action;
 	}
 
-	public abstract void run();
+	public abstract void run() throws MarketoException;
 	
-	protected abstract Map<String,Object> populateRequest();
+	protected abstract ObjectNode populateRequest();
 	
-	public String createExportJob(Map<String, Object> requestBody) {
+	public String createExportJob(ObjectNode requestBody) throws MarketoException {
 		
 		log.info("Create Job for Exporting {}", this.getAction());
 		
-		ObjectNode response = marketoClient.createJob(this.getCreateJobUrl(), requestBody);
+		String exportId = marketoClient.createJob(this.getCreateJobUrl(), requestBody);
 		
-		//TODO: remove the hard coded value and pass proper exportId from the response
-		return "exportId";
+		log.info("Job created Successfully and the export id is : {}",exportId);
+		return exportId;
 	}
 	
-	public boolean processJob(String exportId) {
+	public boolean processJob(String exportId) throws MarketoException {
 
 		//Step 2: Start a job
 		String status = startExportJob(exportId);
 		
 		//Step 3 : polling job status
-		boolean isSuccess = pollingExportJobStatus(exportId);
+		MarketoResponse response = pollingExportJobStatus(exportId);
 		
 		//Step 3 : Retrieve file and store it into local disk
-		retrieveExportData(exportId);
+		if("Completed".equals(response.getResult().get(0).getStatus())) {
+			retrieveExportData(exportId);
+		}
 		
 		return false;
 	}
 	
-	protected String startExportJob(String exportId) {
+	protected String startExportJob(String exportId) throws MarketoException {
 		log.info("Start Job for Exporting {}", this.action);
 		
-		ObjectNode response = marketoClient.startJob(buildUrl(this.getStartJobUrl(),exportId));
-		//TODO: remove the hard coded value and pass proper status from the response
-		return "status";
+		MarketoResponse response = marketoClient.startJob(buildUrl(this.getStartJobUrl(),exportId));
+		return response.getResult().get(0).getStatus();
 	}
 
 	/**
@@ -178,22 +182,29 @@ public abstract class BaseScheduler {
 		return uri.toString();
 	}
 	
-	protected boolean pollingExportJobStatus(String exportId) {
+	protected MarketoResponse pollingExportJobStatus(String exportId) {
 		log.info("Polling Job status for Exporting {}", this.action);
 		String url = buildUrl(this.getPollStatusJobUrl(), exportId);
-		ObjectNode response = null;
+		MarketoResponse response = null;
 		try {
-			response = methodPoller.poll(1000)
-								 	.method(()->marketoClient.pollingJobStatus(url))
-								 	.until(resp -> "Completed".equals(resp.get("result").get("status").asText()) 
-								 				|| "Cancelled".equals(resp.get("result").get("status").asText()) 
-								 				|| "Failed".equals(resp.get("result").get("status").asText()))
+			response = methodPoller.poll(1000*30)
+								 	.method(()->{
+										try {
+											return marketoClient.pollingJobStatus(url);
+										} catch (MarketoException e) {
+											log.error(e.getCode(),e.getMessage(),e);
+										}
+										return null;
+									})
+								 	.until(resp -> "Completed".equals(resp.getResult().get(0).getStatus())
+								 				|| "Cancelled".equals(resp.getResult().get(0).getStatus()) 
+								 				|| "Failed".equals(resp.getResult().get(0).getStatus()))
 								 	.execute();
 		} catch (InterruptedException e) {
 			log.error(e.getMessage(),e);
 		}
-		//TODO: remove the hard coded value and pass proper status from the response
-		return response.get("result").get("status").asBoolean();
+		
+		return response;
 	}
 	
 	protected void retrieveExportData(String exportId) {
@@ -217,6 +228,7 @@ public abstract class BaseScheduler {
 				String line;
 				while ((line = reader.readLine()) != null) {
 					writer.write(line);
+					writer.write("\n");
 				}
 			}
 			reader.close();
@@ -226,8 +238,8 @@ public abstract class BaseScheduler {
 		}
 	}
 	
-	public Map<String,String> createdAtFilter() {
-		Map<String,String> createdAtFilter = new HashMap<>();
+	public ObjectNode createdAtFilter() {
+		ObjectNode createdAtFilter = JsonUtils.objectNode();
 		
 		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
 		Calendar startDate = Calendar.getInstance();

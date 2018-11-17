@@ -41,8 +41,8 @@ public class RestTemplateLoggingInterceptor implements ClientHttpRequestIntercep
     private void logRequest(String prefix, HttpRequest request, byte[] body) throws IOException {
             log.info("Calling external API begins");
             log.info("{} URI : {} {}", prefix,request.getMethod(),request.getURI());
-            log.info("{} Headers     : {}", prefix,request.getHeaders());
-            log.info("{} Request body: {}", prefix,new String(body, "UTF-8"));
+            log.debug("{} Headers     : {}", prefix,request.getHeaders());
+            log.debug("{} Request body: {}", prefix,new String(body, "UTF-8"));
     }
  
     /**
@@ -53,8 +53,8 @@ public class RestTemplateLoggingInterceptor implements ClientHttpRequestIntercep
      */
     private void logResponse(String prefix, ClientHttpResponse response, long startTime) throws IOException {
             log.info("{} Status : {} {}",prefix, response.getStatusCode(),response.getStatusText());
-            log.info("{} Headers      : {}", prefix,response.getHeaders());
-            log.info("{} Response body: {}", prefix, StreamUtils.copyToString(response.getBody(), Charset.defaultCharset()));
+            log.debug("{} Headers      : {}", prefix,response.getHeaders());
+            log.debug("{} Response body: {}", prefix, StreamUtils.copyToString(response.getBody(), Charset.defaultCharset()));
             log.info("{} took {} ms ",prefix,System.currentTimeMillis()-startTime);
             
     }

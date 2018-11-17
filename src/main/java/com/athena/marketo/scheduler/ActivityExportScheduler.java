@@ -1,16 +1,16 @@
 package com.athena.marketo.scheduler;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import com.athena.marketo.exception.MarketoException;
+import com.athena.marketo.utils.JsonUtils;
 import com.athena.marketo.utils.MarketoConstants;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 @Component
 public class ActivityExportScheduler extends BaseScheduler{
@@ -30,9 +30,11 @@ public class ActivityExportScheduler extends BaseScheduler{
 	 * This job will run at everyday at 12 AM mid night
 	 * @see com.athena.marketo.scheduler.BaseScheduler#run()
 	 */
-	@Scheduled(cron = "0 0 * * * ?")
+	//@Scheduled(cron = "0 0 * * * ?")
+	@Async
+	@Scheduled(fixedRate = 1000*60*60)
 	@Override
-	public void run() {
+	public void run() throws MarketoException {
 		log.info("Running ActivityExportScheduler");
 		
 		//Step 1 : Create a job 
@@ -40,34 +42,33 @@ public class ActivityExportScheduler extends BaseScheduler{
 		
 		boolean success = processJob(exportId);
 		
-		log.info("ExpordId : {}",exportId);
+		log.info("ExpordId : {} is completed successfully and the file is stored in the disk",exportId);
 				
 	}
 
 	@Override
-	protected Map<String, Object> populateRequest() {
-		Map<String,Object> requestMap = new HashMap<>();
+	protected ObjectNode populateRequest() {
+		ObjectNode requestMap = JsonUtils.objectNode();
 		
-		List<Integer> activityTypeIds = new ArrayList<>();
+		ArrayNode activityTypeIds = JsonUtils.arrayNode();
 		activityTypeIds.add(1);
 		activityTypeIds.add(32);
 		activityTypeIds.add(12);
 		activityTypeIds.add(34);
 		
-		requestMap.put("activityTypeIds", activityTypeIds);
+		requestMap.putArray("activityTypeIds").addAll(activityTypeIds);
 		requestMap.put("format", "csv");
 		
-		Map<String,Object> filter = new HashMap<>();
+		ObjectNode filter = JsonUtils.objectNode();
 		
 		
 		/*Map<String,String> createdAtFilter = new HashMap<>();
 		createdAtFilter.put("startAt", "2017-07-01T23:59:59-00:00");
 		createdAtFilter.put("endAt", "2017-07-31T23:59:59-00:00");*/
 		
-		filter.put("createdAt", createdAtFilter());
+		filter.set("createdAt", createdAtFilter());
 		
-		requestMap.put("filter", filter);
-		
+		requestMap.set("filter", filter);
 		
 		return requestMap;
 	}

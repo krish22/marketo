@@ -1,16 +1,16 @@
 package com.athena.marketo.scheduler;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import com.athena.marketo.exception.MarketoException;
+import com.athena.marketo.utils.JsonUtils;
 import com.athena.marketo.utils.MarketoConstants;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 @Component
 public class LeadExportScheduler extends BaseScheduler{
@@ -31,9 +31,11 @@ public class LeadExportScheduler extends BaseScheduler{
 	 * This job will run at everyday at 12 AM mid night
 	 * @see com.athena.marketo.scheduler.BaseScheduler#run()
 	 */
-	@Scheduled(cron = "0 0 * * * ?")
+	//@Scheduled(cron = "0 0 * * * ?")
+	@Async
+	@Scheduled(fixedRate = 1000*60*60)
 	@Override
-	public void run() {
+	public void run() throws MarketoException {
 		log.info("Running LeadExportScheduler");
 		
 		//Step 1 : Create a job 
@@ -41,7 +43,7 @@ public class LeadExportScheduler extends BaseScheduler{
 		
 		boolean success = processJob(exportId);
 		
-		log.info("ExpordId : {}",exportId);
+		log.info("ExpordId : {} is completed successfully and the file is stored in the disk",exportId);
 		
 	}
 
@@ -49,31 +51,31 @@ public class LeadExportScheduler extends BaseScheduler{
 	 * @return
 	 */
 	@Override
-	protected Map<String, Object> populateRequest() {
-		Map<String,Object> requestMap = new HashMap<>();
+	protected ObjectNode populateRequest() {
+		ObjectNode requestMap = JsonUtils.objectNode();
 		
-		List<String> fieldsNames = new ArrayList<>();
+		ArrayNode fieldsNames = JsonUtils.getObjectMapper().createArrayNode();
 		fieldsNames.add("firstName");
 		fieldsNames.add("lastName");
 		fieldsNames.add("id");
 		fieldsNames.add("email");
 		
-		requestMap.put("fields", fieldsNames);
+		requestMap.putArray("fields").addAll(fieldsNames);
 		requestMap.put("format", "csv");
 		
-		Map<String,String> columnsHeaderName = new HashMap<>();
+		ObjectNode columnsHeaderName = JsonUtils.objectNode();
 		columnsHeaderName.put("firstName", "First Name");
 		columnsHeaderName.put("lastName", "Last Name");
 		columnsHeaderName.put("id", "Lead Id");
 		columnsHeaderName.put("email", "Email address");
 		
-		requestMap.put("columnHeaderNames", columnsHeaderName);
+		requestMap.set("columnHeaderNames",columnsHeaderName);
 		
-		Map<String,Object> filter = new HashMap<>();
+		ObjectNode filter = JsonUtils.objectNode();
 		
-		filter.put("createdAt", createdAtFilter());
+		filter.set("createdAt", createdAtFilter());
 		
-		requestMap.put("filter", filter);
+		requestMap.set("filter", filter);
 		return requestMap;
 	}
 	

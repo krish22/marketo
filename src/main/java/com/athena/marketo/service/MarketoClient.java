@@ -2,63 +2,38 @@ package com.athena.marketo.service;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Collections;
-import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.client.BufferingClientHttpRequestFactory;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
-import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.stereotype.Service;
 
-import com.athena.marketo.config.RestTemplateLoggingInterceptor;
-import com.athena.marketo.utils.MarketoConstants;
+import com.athena.marketo.domain.MarketoError;
+import com.athena.marketo.domain.MarketoResponse;
+import com.athena.marketo.exception.MarketoException;
+import com.athena.marketo.utils.CacheUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-@Component
-public class MarketoClient {
+@Service
+public class MarketoClient extends BaseService{
 
 	private static final Logger log = LoggerFactory.getLogger(MarketoClient.class);
 	
-	private final RestTemplate rest;
+	@Autowired
+	private CacheUtils cacheUtils;
 	
-	@Value("${developer.marketo.baseUrl}")
-    private String baseUrl;
-	
-	@Value("${developer.marketo.clientId}")
-    private String clientId;
-
-	@Value("${developer.marketo.secretId}")
-    private String secretId;
-	
-	public MarketoClient() {
-		rest = new RestTemplate(new BufferingClientHttpRequestFactory(new SimpleClientHttpRequestFactory()));
-        rest.setInterceptors(Collections.singletonList(new RestTemplateLoggingInterceptor()));
-	}
-	
-	@Cacheable(value="identity")
-	public JsonNode getIdentityToken() {
-		log.info("Calling getIdentityToken and caching");
-		return getIdentity();
-	}
-	
-	@CacheEvict(value="identity",allEntries = true)
-	public void removeIdentityFromCache() { log.info("Identity token is expired and removing it from cache");}
-	
-	private ObjectNode post(String url,String requestBody) {
-		log.info("start post");
+	private MarketoResponse post(String url,String requestBody) throws MarketoException {
+		log.info("Inside post method");
+		
 		HttpHeaders headers = getHttpHeaders();
+		headers.add("Content-Type", MediaType.APPLICATION_JSON_VALUE);
 	    HttpEntity<String> requestEntity =null;
 	    if(null != requestBody) {
 	    	requestEntity = new HttpEntity<String>(requestBody, headers);
@@ -66,34 +41,55 @@ public class MarketoClient {
 	    	requestEntity = new HttpEntity<String>(headers);
 	    }
 		
-	    ResponseEntity<ObjectNode> response = rest.exchange(url, HttpMethod.POST, requestEntity, ObjectNode.class); 
-	    log.info("End post : {}",response.getBody());
+	    ResponseEntity<MarketoResponse> response = rest.exchange(url, HttpMethod.POST, requestEntity, MarketoResponse.class); 
 	    
-	    if(response.getStatusCodeValue() == 601 || response.getStatusCodeValue() ==602) {
-	    	log.info("Authorization token is invalid or expired .. Hence refresing the cache" );
-	    	this.removeIdentityFromCache();
-	    	return post(url,requestBody);
+	    MarketoResponse resp = response.getBody();
+	    
+	    //This check will ensure the following
+	    //1. if the request is not succeed then it will throw the MarketoException
+	    //2.  If the request is not succed due to Authorization token invalid or expired , then it will generate a new token and re
+	    //	  re-try the same requst
+	    if(!resp.isSuccess() && !handleError(resp)) {
+	    	return this.post(url, requestBody);
 	    }
 	    
-		return response.getBody();
-		
+	    log.info("End post : {}",resp);
+	    
+		return resp;
 	}
 
-	private ObjectNode get(String url) {
+	private boolean handleError(MarketoResponse resp) throws MarketoException {
+		if(null!=resp.getErrors() && !resp.getErrors().isEmpty()) {
+			MarketoError error = resp.getErrors().get(0);
+			if("601".equals(error.getCode()) || "602".equals(error.getCode())) {
+				log.info("Authorization token is invalid or expired .. Hence refresing the cache");
+				cacheUtils.removeIdentityFromCache();
+				return false;
+			}
+			log.error("Error in request : {}",error);
+			throw new MarketoException(error.getCode(), error.getMessage());
+		}
+		return true;
+	}
+	
+	private MarketoResponse get(String url) throws MarketoException {
 		log.info("start get");
 		HttpHeaders headers = getHttpHeaders();
 		HttpEntity<String> requestEntity = new HttpEntity<>(headers);
 		
-		ResponseEntity<ObjectNode> response = rest.exchange(url, HttpMethod.GET, requestEntity, ObjectNode.class);
-		log.info("End getIdentity : {}",response.getBody());
+		ResponseEntity<MarketoResponse> response = rest.exchange(url, HttpMethod.GET, requestEntity, MarketoResponse.class); 
+		MarketoResponse resp = response.getBody();
+		log.info("End getIdentity : {}",resp);
 		
-		if(response.getStatusCodeValue() == 601 || response.getStatusCodeValue() ==602) {
-	    	log.info("Authorization token is invalid or expired .. Hence refresing the cache" );
-	    	this.removeIdentityFromCache();
-	    	return get(url);
+		 //This check will ensure the following
+	    //1. if the request is not succeed then it will throw the MarketoException
+	    //2.  If the request is not succed due to Authorization token invalid or expired , then it will generate a new token and re
+	    //	  re-try the same requst
+	    if(!resp.isSuccess() && !handleError(resp)) {
+	    	return this.get(url);
 	    }
 		
-		return response.getBody();
+		return resp;
 	}
 	
 	private InputStream getFile(String url) throws IOException {
@@ -102,59 +98,49 @@ public class MarketoClient {
 		HttpEntity<String> requestEntity = new HttpEntity<>(headers);
 		
 		ResponseEntity<Resource> response = rest.exchange(url, HttpMethod.GET, requestEntity, Resource.class);
-		log.info("End getIdentity : {}",response.getBody());
-		
+
+		InputStream is = response.getBody().getInputStream();
+		/*
 		if(response.getStatusCodeValue() == 601 || response.getStatusCodeValue() == 602) {
 	    	log.info("Authorization token is invalid or expired .. Hence refresing the cache" );
 	    	this.removeIdentityFromCache();
 	    	return getFile(url);
-	    }
+	    }*/
 		
-		return response.getBody().getInputStream();
+		return is;
 	}
-	private ObjectNode getIdentity() {
-		log.info("start getIdentity");
-		HttpHeaders headers = new HttpHeaders();
-	    HttpEntity<String> requestEntity = new HttpEntity<>(headers);
-	    
-		UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + MarketoConstants.IDENTITY_URL)
-				.queryParam(MarketoConstants.GRANT_TYPE, MarketoConstants.CLIENT_CREDENTIALS)
-				.queryParam(MarketoConstants.CLIENT_ID, clientId)
-				.queryParam(MarketoConstants.CLIENT_SECRET, secretId);
-		
-		ResponseEntity<ObjectNode> response = rest.exchange(builder.toUriString(), HttpMethod.GET, requestEntity, ObjectNode.class);
-		log.info("End getIdentity : {}",response.getBody());
-		return response.getBody();
-	}
+	
 	
 	private HttpHeaders getHttpHeaders() {
 		HttpHeaders headers = new HttpHeaders();
-		JsonNode resp = getIdentityToken();
+		JsonNode resp = cacheUtils.getIdentityToken();
 		
 		StringBuilder token = new StringBuilder(resp.get("token_type").textValue())
 				.append(" ")
 				.append(resp.get("access_token").textValue());
-		log.info("header token , {} ",token);
+		log.debug("header token , {} ",token);
 		headers.add("Authorization",token.toString());
 		return headers;
 	}
 	
-	public ObjectNode createJob(String url,Map<String, Object> requestBody) {
-		log.info("start createJob");
-		return post(url,String.valueOf(requestBody));
+	public String createJob(String url,ObjectNode requestBody) throws MarketoException {
+		log.info("inside createJob");
+		MarketoResponse  resp = post(baseUrl+url,String.valueOf(requestBody));
+		 
+		return resp.getResult().get(0).getExportId();
 	}
 
-	public ObjectNode startJob(String url) {
-		log.info("start createJob");
-		return post(url,null);
+	public MarketoResponse startJob(String url) throws MarketoException {
+		log.info("inside startJob");
+		return post(baseUrl+url,null);
 	}
 	
-	public ObjectNode pollingJobStatus(String url) {
-		log.info("start pollingJobStatus");
-		return get(url);
+	public MarketoResponse pollingJobStatus(String url) throws MarketoException {
+		log.info("inside pollingJobStatus");
+		return get(baseUrl+url);
 	}
 
 	public InputStream retrieveExportData(String url) throws IOException {
-		return getFile(url);
+		return getFile(baseUrl+url);
 	}
 }
