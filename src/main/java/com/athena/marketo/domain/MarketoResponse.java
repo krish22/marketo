@@ -63,8 +63,8 @@ public class MarketoResponse {
 	 */
 	@Override
 	public String toString() {
-		return "MarketoResponse [requestId=" + requestId + ", success=" + success + ", result=" + String.valueOf(result) + ", errors="
-				+ String.valueOf(errors) + "]";
+		return "MarketoResponse [requestId=" + requestId + ", success=" + success + ", result=" + result + ", errors="
+				+ errors + "]";
 	}
 	
 	

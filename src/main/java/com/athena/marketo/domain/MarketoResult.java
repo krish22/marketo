@@ -69,4 +69,14 @@ public class MarketoResult {
 		this.format = format;
 	}
 	
+	/* (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "MarketoResult [exportId=" + exportId + ", status=" + status + ", createdAt=" + createdAt + ", queuedAt="
+				+ queuedAt + ", format=" + format + "]";
+	}
+	
+	
 }
