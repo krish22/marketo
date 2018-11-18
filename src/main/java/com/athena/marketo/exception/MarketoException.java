@@ -22,6 +22,10 @@ public class MarketoException extends Exception {
 	}
 
 
+	public MarketoException(String message) {
+		super(message);
+	}
+
 	/**
 	 * @return the code
 	 */

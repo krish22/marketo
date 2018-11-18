@@ -1,5 +1,6 @@
 package com.athena.marketo.service;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -13,6 +14,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 
 import com.athena.marketo.domain.MarketoError;
 import com.athena.marketo.domain.MarketoResponse;
@@ -73,7 +76,7 @@ public class MarketoClient extends BaseService{
 	}
 	
 	private MarketoResponse get(String url) throws MarketoException {
-		log.info("start get");
+		log.info("inside get");
 		HttpHeaders headers = getHttpHeaders();
 		HttpEntity<String> requestEntity = new HttpEntity<>(headers);
 		
@@ -140,7 +143,29 @@ public class MarketoClient extends BaseService{
 		return get(baseUrl+url);
 	}
 
-	public InputStream retrieveExportData(String url) throws IOException {
+	public InputStream retrieveFileData(String url) throws IOException {
 		return getFile(baseUrl+url);
+	}
+
+	public MarketoResponse uploadLeadData(String url,Resource resource) throws MarketoException {
+		log.info("inside uploadLeadData in client");
+		HttpHeaders headers = getHttpHeaders();
+		headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+		MultiValueMap<String, Object> body  = new LinkedMultiValueMap<>();
+		body.add("file", resource);
+		
+		HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+		ResponseEntity<MarketoResponse> response = rest.postForEntity(baseUrl+url, requestEntity, MarketoResponse.class);
+		MarketoResponse resp = response.getBody();
+		 //This check will ensure the following
+	    //1. if the request is not succeed then it will throw the MarketoException
+	    //2.  If the request is not succed due to Authorization token invalid or expired , then it will generate a new token and re
+	    //	  re-try the same requst
+		log.info("<<< {}",resp);
+	    if(!resp.isSuccess() && !handleError(resp)) {
+	    	return this.uploadLeadData(url,resource);
+	    }
+	    
+		return resp;
 	}
 }

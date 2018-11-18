@@ -211,7 +211,7 @@ public abstract class BaseScheduler {
 		log.info("Retrieving data for {}", this.action);
 		String url = buildUrl(this.getRetrieveDataUrl(), exportId);
 		try {
-			InputStream reponseInputStream = marketoClient.retrieveExportData(url);
+			InputStream reponseInputStream = marketoClient.retrieveFileData(url);
 			
 			BufferedReader reader = new BufferedReader(new InputStreamReader(reponseInputStream));
 			

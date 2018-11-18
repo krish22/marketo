@@ -24,4 +24,11 @@ public interface MarketoConstants {
 	String RETRIEVE_ACTIVITY_EXPROT_JOB_URL = "/bulk/v1/activities/export/{exportId}/file.json";
 	String CANCEL_ACTIVITY_EXPORT_JOB_URL = "/bulk/v1/activities/export/{exportId}/cancel.json";
 	
+	String CREATE_LEAD_IMPORT_JOB_URL = "/bulk/v1/leads.json?format=csv";
+	String POLL_STATUS_LEAD_IMPORT_URL = "/bulk/v1/leads/batch/{id}.json";
+	String FAILURE_LEAD_IMPORT_JOB_URL = "/bulk/v1/leads/batch/{id}/failures.json";
+	String WARNING_LEAD_IMPORT_JOB_URL = "/bulk/v1/leads/batch/{id}/warnings.json";
+	
+	
+	
 }
