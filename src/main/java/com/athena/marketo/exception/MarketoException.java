@@ -2,11 +2,18 @@ package com.athena.marketo.exception;
 
 public class MarketoException extends Exception {
 	
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 4067872527342710554L;
+	
 	private String code;
 	private String message;
 
 	public MarketoException(String code, String message) {
 		super(message);
+		this.code = code;
+		this.message = message;
 	}
 
 	public MarketoException(Throwable cause) {
@@ -15,6 +22,8 @@ public class MarketoException extends Exception {
 
 	public MarketoException(String code,String message, Throwable cause) {
 		super(message, cause);
+		this.code = code;
+		this.message = message;
 	}
 
 	public MarketoException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
@@ -24,6 +33,7 @@ public class MarketoException extends Exception {
 
 	public MarketoException(String message) {
 		super(message);
+		this.message = message;
 	}
 
 	/**

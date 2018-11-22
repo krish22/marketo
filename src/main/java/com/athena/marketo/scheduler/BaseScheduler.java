@@ -7,6 +7,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -37,6 +38,37 @@ public abstract class BaseScheduler {
 	private String cancelJobUrl;
 	private String action; 
 
+	private String startAt;
+	/**
+	 * @return the startAt
+	 */
+	public String getStartAt() {
+		return startAt;
+	}
+
+	/**
+	 * @param startAt the startAt to set
+	 */
+	public void setStartAt(String startAt) {
+		this.startAt = startAt;
+	}
+
+	/**
+	 * @return the endAt
+	 */
+	public String getEndAt() {
+		return endAt;
+	}
+
+	/**
+	 * @param endAt the endAt to set
+	 */
+	public void setEndAt(String endAt) {
+		this.endAt = endAt;
+	}
+
+	private String endAt;
+	
 	@Autowired
 	private MarketoClient marketoClient;
 	
@@ -133,9 +165,9 @@ public abstract class BaseScheduler {
 		this.action = action;
 	}
 
-	public abstract void run() throws MarketoException;
+	public abstract void run(String startAt, String endAt) throws MarketoException;
 	
-	protected abstract ObjectNode populateRequest();
+	protected abstract ObjectNode populateRequest() throws ParseException;
 	
 	public String createExportJob(ObjectNode requestBody) throws MarketoException {
 		
@@ -238,10 +270,10 @@ public abstract class BaseScheduler {
 		}
 	}
 	
-	public ObjectNode createdAtFilter() {
+	public ObjectNode createdAtFilter(String startAt, String endAt) throws ParseException {
 		ObjectNode createdAtFilter = JsonUtils.objectNode();
 		
-		SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+		/*SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
 		Calendar startDate = Calendar.getInstance();
 
 		setTimeToZero(startDate);
@@ -249,8 +281,11 @@ public abstract class BaseScheduler {
 		startDate.set(Calendar.DATE, startDate.get(Calendar.DATE)- extractDuration);
 		setTimeToZero(endDate);
 		
-		createdAtFilter.put("startAt", dateFormat.format(startDate.getTime()));
-		createdAtFilter.put("endAt", dateFormat.format(endDate.getTime()));
+		dateFormat.parse(startAt);
+		dateFormat.parse(endAt);*/
+		
+		createdAtFilter.put("startAt",startAt);
+		createdAtFilter.put("endAt", endAt);
 		
 		log.info(" created at filterValue {}", String.valueOf(createdAtFilter));
 		return createdAtFilter;
@@ -268,4 +303,18 @@ public abstract class BaseScheduler {
 		date.set(Calendar.MILLISECOND,0);
 	}
 
+	protected boolean validDateFormat(String starAt,String endAt) throws MarketoException {
+		String dateFormatStr = "yyyy-MM-dd'T'HH:mm:ss'Z'";
+		SimpleDateFormat dateFormat = new SimpleDateFormat(dateFormatStr);
+		try {
+			dateFormat.parse(starAt);
+			dateFormat.parse(endAt);
+		} catch (ParseException e) {
+			log.error("Inavlid data format, it should be {}",dateFormatStr);
+			log.error(e.getMessage(),e);
+			throw new MarketoException("524", "Inavlid data format, it should be " + dateFormatStr, e);
+		}
+		
+		return true;
+	}
 }

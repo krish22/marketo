@@ -1,9 +1,9 @@
 package com.athena.marketo.scheduler;
 
+import java.text.ParseException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.athena.marketo.exception.MarketoException;
@@ -12,7 +12,7 @@ import com.athena.marketo.utils.MarketoConstants;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
-@Component
+@Component(value="ActivityExportScheduler")
 public class ActivityExportScheduler extends BaseScheduler{
 
 	private static final Logger log = LoggerFactory.getLogger(ActivityExportScheduler.class);
@@ -31,23 +31,36 @@ public class ActivityExportScheduler extends BaseScheduler{
 	 * @see com.athena.marketo.scheduler.BaseScheduler#run()
 	 */
 	//@Scheduled(cron = "0 0 * * * ?")
-	@Async
+/*	@Async
 	@Scheduled(fixedRate = 1000*60*60)
-	@Override
-	public void run() throws MarketoException {
-		log.info("Running ActivityExportScheduler");
+	@Override*/
+	public void run(String startAt, String endAt) throws MarketoException{
+		validDateFormat(startAt,endAt);
+		Runnable runnable = () -> {
+			log.info("Running ActivityExportScheduler");
+			
+			this.setStartAt(startAt);
+			this.setEndAt(endAt);
+			
+			//Step 1 : Create a job 
+			String exportId = null;;
+			try {
+				exportId = createExportJob(populateRequest());
+				boolean success = processJob(exportId);
+			} catch (MarketoException | ParseException e) {
+				log.info("Error in executing lead extrac");
+				log.error(e.getMessage(),e);
+			}
+			
+			log.info("ExpordId : {} is completed successfully and the file is stored in the disk",exportId);
+		};
 		
-		//Step 1 : Create a job 
-		String exportId = createExportJob(populateRequest());
-		
-		boolean success = processJob(exportId);
-		
-		log.info("ExpordId : {} is completed successfully and the file is stored in the disk",exportId);
-				
+		Thread activityExtractScheduler = new Thread(runnable);
+		activityExtractScheduler.start();
 	}
 
 	@Override
-	protected ObjectNode populateRequest() {
+	protected ObjectNode populateRequest() throws ParseException {
 		ObjectNode requestMap = JsonUtils.objectNode();
 		
 		ArrayNode activityTypeIds = JsonUtils.arrayNode();
@@ -66,7 +79,7 @@ public class ActivityExportScheduler extends BaseScheduler{
 		createdAtFilter.put("startAt", "2017-07-01T23:59:59-00:00");
 		createdAtFilter.put("endAt", "2017-07-31T23:59:59-00:00");*/
 		
-		filter.set("createdAt", createdAtFilter());
+		filter.set("createdAt", createdAtFilter(this.getStartAt(),this.getEndAt()));
 		
 		requestMap.set("filter", filter);
 		
