@@ -73,7 +73,7 @@ API
 
 4. To upload file to marketo server
 
-	curl -i -X POST -H "Content-Type: multipart/form-data" -F file=@"/home/krishnan/marketodata/Leadupload.csv" http://localhost:8081/api/v1/marketo/uploadLeadData
+	curl -i -X POST -d "file=/home/krishnan/marketodata/Leadupload.csv" http://localhost:8081/api/v1/marketo/uploadLeadData
 
   Response:
   HTTP/1.1 202 
