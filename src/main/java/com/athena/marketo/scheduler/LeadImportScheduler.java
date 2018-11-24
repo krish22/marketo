@@ -3,6 +3,7 @@ package com.athena.marketo.scheduler;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponents;
@@ -41,12 +43,12 @@ public class LeadImportScheduler {
 	@Value("${exportfilepath}")
 	private String exportfilepath;
 	
-	public void run(MultipartFile file) throws MarketoException {
+	public void run(String filePath) throws MarketoException {
 		Runnable runnable = () -> {
 			
 			try {
 				//Step 1 : Create job 
-				MarketoResponse response =  createJob(file.getResource());
+				MarketoResponse response =  createJob(filePath);
 				
 				//Step 2: polling status
 				String batchId  = response.getResult().get(0).getBatchId();
@@ -135,9 +137,10 @@ public class LeadImportScheduler {
 		
 	}
 
-	private MarketoResponse createJob(Resource resource) throws MarketoException {
+	private MarketoResponse createJob(String filePath) throws MarketoException {
 		log.info("Inside createJob");
-		MarketoResponse resp = marketoClient.uploadLeadData(MarketoConstants.CREATE_LEAD_IMPORT_JOB_URL,resource);
+		FileSystemResource fsr = new FileSystemResource(new File(filePath));
+		MarketoResponse resp = marketoClient.uploadLeadData(MarketoConstants.CREATE_LEAD_IMPORT_JOB_URL,fsr);
 		log.info("Response for create lead import job : {}",resp);
 		return resp;
 	}

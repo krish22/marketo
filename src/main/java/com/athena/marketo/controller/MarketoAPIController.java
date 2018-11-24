@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -37,10 +38,11 @@ public class MarketoAPIController {
 	@Qualifier("ActivityExportScheduler")
 	private BaseScheduler activityExtractScheduler;
 	
+
 	@PostMapping("/uploadLeadData")
-	public ResponseEntity<String> uploadLeadData(@RequestParam("file") MultipartFile file) throws MarketoException, IOException{
+	public ResponseEntity<String> uploadLeadData(@RequestParam("file") String filePath) throws MarketoException, IOException{
 		log.info("Start uploadLeadData");
-		leadImportScheduler.run(file);
+		leadImportScheduler.run(filePath);
 		return ResponseEntity.status(HttpStatus.ACCEPTED).body("Upload Lead data submitted succefully !!!.");	
 	}
 	
